@@ -206,8 +206,8 @@ def formatar_sinal(dados: dict, preview: bool) -> str:
         f"{'─' * 25}\n"
         f"⚽ *Jogo:* {jogo}\n"
         f"📊 *Mercado:* {mercado}\n"
-        f"📈 *Odd:* `{odd}`\n"
-        f"💰 *Stake:* {stake}\n"
+        f"📈 *Cotação:* `{odd}`\n"
+        f"💰 *Unidades:* {stake}\n"
         f"🏦 *Casa:* Bet365\n"
         f"⏰ *Horário:* {hora}\n"
     )
