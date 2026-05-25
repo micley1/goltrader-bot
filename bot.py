@@ -11,12 +11,12 @@ logging.basicConfig(level=logging.INFO)
 # ─── Configuração ─────────────────────────────────────────────
 
 TOKEN       = os.environ.get("TELEGRAM_TOKEN", "SEU_TOKEN_AQUI")
-ADMIN_ID    = int(os.environ.get("ADMIN_ID", "0"))      # O teu Telegram ID
-GROUP_ID    = os.environ.get("GROUP_ID", "0")           # ID do grupo/canal VIP
+ADMIN_ID    = int(os.environ.get("ADMIN_ID", "0"))
+GROUP_ID    = os.environ.get("GROUP_ID", "0")
 
 # ─── Estados da conversa ──────────────────────────────────────
 
-JOGO, MERCADO, ODD, STAKE, HORA, ANALISE, CONFIRMAR = range(7)
+JOGO, MERCADO, ODD, STAKE, HORA, ANALISE, LINK, CONFIRMAR = range(8)
 
 # ─── Mercados Bet365 ──────────────────────────────────────────
 
@@ -77,7 +77,7 @@ async def sinal_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🚨 *Novo Sinal*\n\n"
         "⚽ Qual é o jogo?\n"
-        "_(ex: Arsenal x Chelsea)_",
+        "_(ex: Corinthians x Flamengo)_",
         reply_markup=ReplyKeyboardRemove(),
         parse_mode="Markdown"
     )
@@ -94,7 +94,7 @@ async def get_jogo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_mercado(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["mercado"] = update.message.text
     await update.message.reply_text(
-        "📈 Qual a odd? _(ex: 1.85)_",
+        "📈 Qual a cotação? _(ex: 1.85)_",
         reply_markup=ReplyKeyboardRemove(),
         parse_mode="Markdown"
     )
@@ -104,11 +104,11 @@ async def get_odd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         odd = float(update.message.text.replace(",", "."))
         if odd <= 1.0:
-            await update.message.reply_text("❌ Odd inválida. Tem que ser maior que 1.0:")
+            await update.message.reply_text("❌ Cotação inválida. Tem que ser maior que 1.0:")
             return ODD
         context.user_data["odd"] = odd
         await update.message.reply_text(
-            "💰 Qual o stake recomendado?",
+            "💰 Quantas unidades recomendas?",
             reply_markup=ReplyKeyboardMarkup(STAKES, one_time_keyboard=True, resize_keyboard=True)
         )
         return STAKE
@@ -136,10 +136,28 @@ async def get_hora(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_analise(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["analise"] = update.message.text
-    return await mostrar_preview(update, context)
+    await update.message.reply_text(
+        "🔗 Cola o link da aposta na Bet365:\n\n"
+        "Ou envia /pular para não adicionar link.",
+        parse_mode="Markdown"
+    )
+    return LINK
 
 async def pular_analise(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["analise"] = None
+    await update.message.reply_text(
+        "🔗 Cola o link da aposta na Bet365:\n\n"
+        "Ou envia /pular para não adicionar link.",
+        parse_mode="Markdown"
+    )
+    return LINK
+
+async def get_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["link"] = update.message.text
+    return await mostrar_preview(update, context)
+
+async def pular_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["link"] = None
     return await mostrar_preview(update, context)
 
 async def mostrar_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -200,6 +218,7 @@ def formatar_sinal(dados: dict, preview: bool) -> str:
     stake   = dados.get("stake", "—")
     hora    = dados.get("hora", "—")
     analise = dados.get("analise")
+    link    = dados.get("link")
 
     texto = (
         f"🚨 *SINAL #{numero}*\n"
@@ -214,6 +233,9 @@ def formatar_sinal(dados: dict, preview: bool) -> str:
 
     if analise:
         texto += f"📌 *Análise:* _{analise}_\n"
+
+    if link:
+        texto += f"🔗 *Link:* {link}\n"
 
     texto += (
         f"{'─' * 25}\n"
@@ -244,12 +266,13 @@ async def teste(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     dados_teste = {
         "numero": 1,
-        "jogo": "Arsenal x Chelsea",
+        "jogo": "Corinthians x Flamengo",
         "mercado": "⚽ BTTS (Ambos Marcam)",
         "odd": 1.85,
         "stake": "2️⃣ 2 Unidades",
         "hora": "16:00",
-        "analise": "Ambas as equipas marcam nos últimos 5 jogos"
+        "analise": "Ambas as equipas marcam nos últimos 5 jogos",
+        "link": "https://www.bet365.com"
     }
     sinal_texto = formatar_sinal(dados_teste, preview=False)
     await update.message.reply_text(
@@ -289,6 +312,10 @@ def main():
             ANALISE:   [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, get_analise),
                 CommandHandler("pular", pular_analise)
+            ],
+            LINK:      [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, get_link),
+                CommandHandler("pular", pular_link)
             ],
             CONFIRMAR: [CallbackQueryHandler(confirmar_sinal)],
         },
